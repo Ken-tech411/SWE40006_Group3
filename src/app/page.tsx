@@ -13,15 +13,15 @@ import Image from "next/image"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-white text-white">
       {/* ==== HERO SECTION ==== */}
-      <div className="relative bg-black overflow-hidden">
+      <div className="relative bg-white overflow-hidden">
         <div className="container mx-auto px-4 py-24">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[600px]">
 
             {/* LEFT */}
             <div className="text-center lg:text-left space-y-6">
-              <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
+              <h1 className="text-5xl lg:text-7xl font-bold leading-tight text-black">
                 TRUNG NGUYÊN
                 <br />
                 <span className="text-yellow-400">LEGEND</span>
@@ -29,16 +29,16 @@ export default function HomePage() {
                 COFFEE
               </h1>
 
-              <p className="text-xl opacity-80 max-w-lg">
+              <p className="text-xl opacity-80 max-w-lg text-black">
                 The Energy Coffee That Changes Life
               </p>
 
-              <p className="text-xl opacity-80 max-w-lg">
+              <p className="text-xl opacity-80 max-w-lg text-black">
                 25+ years of passion
               </p>
 
               <Link href="/products">
-                <Button className="bg-yellow-400 text-black hover:bg-white font-semibold px-8 py-6 rounded-xl">
+                <Button className="bg-yellow-400 text-black hover:bg-black hover:text-yellow-400 font-semibold px-8 py-6 rounded-xl">
                   Explore Products
                 </Button>
               </Link>

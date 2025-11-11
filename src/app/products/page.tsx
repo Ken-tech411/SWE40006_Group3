@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Trash2,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 /* ============================== Types ============================== */
 
@@ -62,6 +63,11 @@ export default function ProductsPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<ModalType>("view");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  // 🔍 Lấy search & category từ URL
+  const searchParams = useSearchParams();
+  const search = searchParams.get("search")?.toLowerCase().trim() || "";
+  const category = searchParams.get("category")?.toLowerCase().trim() || "";
+
 
   /* ---------------------- Inventory helpers ----------------------- */
 
@@ -113,6 +119,7 @@ export default function ProductsPage() {
       await deleteDoc(doc(db, "inventory", invId));
     }
   };
+  
 
   /* -------------------------- Fetch all --------------------------- */
 
@@ -183,8 +190,10 @@ export default function ProductsPage() {
   );
 
   const filteredProducts = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const catFilter = categoryFilter.toLowerCase();
+    const term = (search || searchTerm).trim().toLowerCase(); // ưu tiên search từ URL
+    const catFilter = category
+      ? category
+      : categoryFilter.toLowerCase();
 
     return products.filter((p) => {
       const name = (p.name ?? "").toLowerCase();
@@ -195,14 +204,15 @@ export default function ProductsPage() {
         !term || name.includes(term) || cat.includes(term);
 
       const matchesCategory =
-        categoryFilter === "All Categories" || cat === catFilter;
+        catFilter === "all categories" || cat === catFilter;
 
       const matchesStatus =
         statusFilter === "All Status" || status === statusFilter;
 
       return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [products, searchTerm, categoryFilter, statusFilter]);
+  }, [products, searchTerm, search, category, categoryFilter, statusFilter]);
+
 
 
   /* --------------------------- Pagination -------------------------- */
