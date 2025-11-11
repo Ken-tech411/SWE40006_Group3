@@ -1,215 +1,197 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { AnimatedSection } from "@/components/animated-section"
-import { ChevronLeft, ChevronRight, Gift, Star, Clock } from "lucide-react"
+import { ChevronLeft, ChevronRight, Coffee, Bean, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-
 export default function PromoSection() {
-  const router = useRouter();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const router = useRouter()
+  const [currentSlide, setCurrentSlide] = useState(0)
 
   const promoSlides = [
     {
       id: 1,
-      title: "VITAMIN & SUPPLEMENTS",
-      subtitle: "IMMUNE SUPPORT COLLECTION",
-      description: "Boost your immunity with our premium vitamins, multivitamins, and essential supplements",
-      discount: "IMMUNITY BOOST",
-      discountValue: "BY 25%",
-      bgGradient: "from-green-600 via-green-500 to-emerald-600",
-      buttonText: "SHOP SUPPLEMENTS",
-      icon: <Star className="w-8 h-8" />,
-      category: "Supplement"
+      title: "Trung Nguyên Coffee",
+      subtitle: "Hương vị năng lượng tuyệt hảo",
+      description:
+        "Khám phá những dòng cà phê truyền thống mang đậm bản sắc Việt Nam – rang xay tinh tuyển, đậm đà quyến rũ.",
+      badge: "SPECIAL",
+      badge2: "PREMIUM",
+      bgGradient: "from-black via-zinc-900 to-yellow-700",
+      buttonText: "Khám phá ngay",
+      icon: <Coffee className="w-8 h-8" />,
+      category: "coffee",
     },
     {
       id: 2,
-      title: "PRESCRIPTION MEDICINE",
-      subtitle: "PAIN RELIEF & WELLNESS",
-      description: "Professional medications including acarbose, ibuprofen, and specialized treatments",
-      discount: "SPECIAL",
-      discountValue: "RX READY",
-      bgGradient: "from-red-500 via-red-500 to-orange-500",
-      buttonText: "VIEW MEDICINES",
-      icon: <Gift className="w-8 h-8" />,
-      category: "Medicine"
+      title: "Cà phê phin chuẩn Việt",
+      subtitle: "Tinh hoa cà phê rang mộc",
+      description:
+        "Sự kết hợp hoàn hảo giữa hương vị mạnh mẽ và hậu vị ngọt dịu – thưởng thức theo cách phin đậm đà.",
+      badge: "SIGNATURE",
+      badge2: "VIETNAMESE STYLE",
+      bgGradient: "from-zinc-800 via-black to-yellow-500",
+      buttonText: "Mua ngay",
+      icon: <Bean className="w-8 h-8" />,
+      category: "phin",
     },
     {
       id: 3,
-      title: "MEDICAL DEVICES",
-      subtitle: "DIGITAL HEALTH MONITORING",
-      description: "Acetaminophen, brimonidine tartrate, cantaloupe for home care",
-      discount: "NEW ARRIVAL",
-      discountValue: "IN STOCK",
-      bgGradient: "from-blue-600 via-blue-500 to-indigo-600",
-      buttonText: "SHOP DEVICES",
-      icon: <Clock className="w-8 h-8" />,
-      category: "Device"
+      title: "Legend Capsule",
+      subtitle: "Công nghệ hiện đại – trải nghiệm mới",
+      description:
+        "Cà phê viên nén Trung Nguyên – tiện lợi, chuẩn vị, đánh thức tinh thần sáng tạo mỗi ngày.",
+      badge: "NEW",
+      badge2: "IN STOCK",
+      bgGradient: "from-yellow-500 via-yellow-500 to-neutral-900",
+      buttonText: "Xem sản phẩm",
+      icon: <Star className="w-8 h-8" />,
+      category: "capsule",
     },
-  ];
+  ]
 
   // Auto slide every 5 seconds
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % promoSlides.length);
-    }, 5000);
-    
-    return () => clearInterval(timer);
-  }, [promoSlides.length]);
+      setCurrentSlide((prev) => (prev + 1) % promoSlides.length)
+    }, 5000)
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % promoSlides.length);
-  };
+    return () => clearInterval(timer)
+  }, [promoSlides.length])
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + promoSlides.length) % promoSlides.length);
-  };
+  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % promoSlides.length)
+  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + promoSlides.length) % promoSlides.length)
+  const goToSlide = (index: number) => setCurrentSlide(index)
 
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
-  };
-
-  // Remove authentication requirement - let users access products page
   const handleButtonClick = (category: string) => {
-    router.push(`/products?category=${encodeURIComponent(category)}`);
-  };
+    router.push(`/products?category=${encodeURIComponent(category)}`)
+  }
 
   return (
     <>
-      <AnimatedSection className="py-8 bg-gray-50">
+      <AnimatedSection className="py-8 bg-white">
         <div className="container mx-auto px-4">
           {/* Main Promo Banner */}
-          <div className="relative overflow-hidden rounded-2xl shadow-2xl mb-6">
-            <div className="flex transition-transform duration-500 ease-in-out"
-                 style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+          <div className="relative overflow-hidden rounded-2xl shadow-xl mb-6">
+            <div
+              className="flex transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+            >
               {promoSlides.map((slide) => (
                 <div key={slide.id} className={`min-w-full bg-gradient-to-r ${slide.bgGradient} relative`}>
                   <div className="flex items-center justify-between px-8 py-12 text-white min-h-[300px]">
-                    {/* Left Content */}
+                    {/* Left */}
                     <div className="flex-1 z-10">
                       <div className="flex items-center mb-4">
-                        <div className="bg-white/20 p-3 rounded-full mr-4">
-                          {slide.icon}
-                        </div>
+                        <div className="bg-white/10 p-3 rounded-full mr-4">{slide.icon}</div>
                         <div>
-                          <h2 className="text-3xl font-bold mb-2">{slide.title}</h2>
-                          <h3 className="text-xl font-semibold mb-2">{slide.subtitle}</h3>
+                          <h2 className="text-3xl font-bold mb-2 uppercase">{slide.title}</h2>
+                          <h3 className="text-lg font-medium">{slide.subtitle}</h3>
                         </div>
                       </div>
-                      
-                      <p className="text-lg mb-6 text-white/90 max-w-md">
+
+                      <p className="text-base mb-6 text-white/90 max-w-md">
                         {slide.description}
                       </p>
-                      
-                      <Button 
+
+                      <Button
                         onClick={() => handleButtonClick(slide.category)}
-                        className="bg-white text-gray-800 hover:bg-gray-100 px-8 py-3 rounded-full font-bold text-lg shadow-lg transform hover:scale-105 transition-all duration-300"
+                        className="bg-yellow-500 hover:bg-yellow-400 text-black font-semibold px-8 py-3 rounded-full text-lg shadow-md"
                       >
-                        {slide.buttonText} ▶
+                        {slide.buttonText} →
                       </Button>
                     </div>
 
-                    {/* Right Content - Discount Badge */}
+                    {/* Right */}
                     <div className="flex-1 flex justify-end items-center">
-                      <div className="bg-white/10 backdrop-blur-sm border-2 border-white/30 rounded-3xl p-8 text-center transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                        <div className="text-sm font-medium mb-2">{slide.discount}</div>
-                        <div className="text-4xl font-bold mb-2">{slide.discountValue}</div>
-                        <div className="text-sm opacity-90">Special Opportunity</div>
+                      <div className="bg-black/40 border border-yellow-400 rounded-3xl p-6 text-center">
+                        <div className="text-sm text-yellow-300">{slide.badge}</div>
+                        <div className="text-3xl font-bold text-yellow-400 mb-1">{slide.badge2}</div>
+                        <div className="text-xs opacity-80 uppercase tracking-wide">Exclusive Offer</div>
                       </div>
                     </div>
-
-                    {/* Decorative Elements */}
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Navigation Arrows */}
+            {/* Navigation arrows */}
             <button
               onClick={prevSlide}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 transition-all duration-300"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-3"
             >
               <ChevronLeft className="w-6 h-6 text-white" />
             </button>
-            
+
             <button
               onClick={nextSlide}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-3 transition-all duration-300"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 rounded-full p-3"
             >
               <ChevronRight className="w-6 h-6 text-white" />
             </button>
 
-            {/* Slide Indicators */}
+            {/* Indicators */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-              {promoSlides.map((_, index) => (
+              {promoSlides.map((_, i) => (
                 <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentSlide 
-                      ? 'bg-white scale-125' 
-                      : 'bg-white/50 hover:bg-white/75'
+                  key={i}
+                  onClick={() => goToSlide(i)}
+                  className={`w-3 h-3 rounded-full ${
+                    i === currentSlide ? "bg-yellow-400 scale-125" : "bg-white/40"
                   }`}
                 />
               ))}
             </div>
           </div>
 
-          {/* Secondary Promo Cards */}
+          {/* Secondary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Quick Health Check Card */}
+            {/* 1 */}
             <AnimatedSection delay={200}>
-              <div className="bg-gradient-to-r from-teal-500 to-cyan-500 rounded-xl p-6 text-white relative overflow-hidden">
-                <div className="relative z-10">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-white/20 p-2 rounded-lg mr-3">
-                      <Star className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">QUICK HEALTH CHECK</h3>
-                      <p className="text-sm opacity-90">Free prescription service</p>
-                    </div>
+              <div className="bg-black rounded-xl p-6 text-white border border-yellow-500">
+                <div className="flex items-center mb-4">
+                  <div className="bg-yellow-500 p-2 rounded-lg mr-3">
+                    <Coffee className="w-6 h-6 text-black" />
                   </div>
-                  <Link href="/prescription">
-                    <Button className="bg-white text-teal-600 hover:bg-gray-100 font-semibold">
-                      Upload Prescription Now
-                    </Button>
-                  </Link>
+                  <div>
+                    <h3 className="font-bold text-lg">Bộ sưu tập signature</h3>
+                    <p className="text-sm opacity-90">Dành cho tín đồ cà phê</p>
+                  </div>
                 </div>
-                <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/10 rounded-full"></div>
+                <Button
+                  onClick={() => handleButtonClick("signature")}
+                  className="bg-yellow-500 text-black hover:bg-yellow-400 font-semibold"
+                >
+                  Xem ngay
+                </Button>
               </div>
             </AnimatedSection>
 
-            {/* Membership Card */}
+            {/* 2 */}
             <AnimatedSection delay={400}>
-              <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white relative overflow-hidden">
-                <div className="relative z-10">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-white/20 p-2 rounded-lg mr-3">
-                      <Gift className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">MEMBERSHIP</h3>
-                      <p className="text-sm opacity-90">Exclusive benefits & discounts</p>
-                    </div>
+              <div className="bg-zinc-900 rounded-xl p-6 text-white border border-yellow-500">
+                <div className="flex items-center mb-4">
+                  <div className="bg-yellow-500 p-2 rounded-lg mr-3">
+                    <Star className="w-6 h-6 text-black" />
                   </div>
-                  <Link href="/login">
-                    <Button className="bg-white text-orange-600 hover:bg-gray-100 font-semibold">
-                      Join VIP
-                    </Button>
-                  </Link>
+                  <div>
+                    <h3 className="font-bold text-lg">Ưu đãi thành viên</h3>
+                    <p className="text-sm opacity-90">Tích điểm – đổi quà</p>
+                  </div>
                 </div>
-                <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-white/10 rounded-full"></div>
+                <Button
+                  onClick={() => router.push("/login")}
+                  className="bg-yellow-500 text-black hover:bg-yellow-400 font-semibold"
+                >
+                  Tham gia ngay
+                </Button>
               </div>
             </AnimatedSection>
           </div>
         </div>
       </AnimatedSection>
     </>
-  );
+  )
 }

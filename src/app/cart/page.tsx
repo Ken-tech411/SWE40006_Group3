@@ -21,6 +21,7 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore"
+import Image from "next/image"
 
 interface CartItem {
   cartId: string
@@ -30,7 +31,7 @@ interface CartItem {
   price: number
   quantity: number
   description: string
-  requiresPrescription: boolean
+  imageUrl?: string
 }
 
 export default function CartPage() {
@@ -38,7 +39,6 @@ export default function CartPage() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [approvedPrescriptions, setApprovedPrescriptions] = useState<any[]>([])
 
   /* =======================
       GET CART ITEMS
@@ -46,7 +46,6 @@ export default function CartPage() {
   useEffect(() => {
     if (user && user.customerId) {
       fetchCartItems(user.customerId)
-      fetchApprovedPrescriptions(user.customerId)
     }
   }, [user])
 
@@ -61,8 +60,8 @@ export default function CartPage() {
       for (const snap of cartSnapshot.docs) {
         const cartData = snap.data()
 
-        // Fetch product details
-        const productRef = doc(db, "products", String(cartData.productId))
+        // ✅ Fetch product details
+        const productRef = doc(db, "product", String(cartData.productId))
         const productSnap = await getDoc(productRef)
 
         const productData = productSnap.exists() ? productSnap.data() : {}
@@ -75,7 +74,7 @@ export default function CartPage() {
           description: productData?.description ?? "",
           price: productData?.price ?? 0,
           quantity: cartData.quantity ?? 1,
-          requiresPrescription: productData?.requiresPrescription ?? false,
+          imageUrl: productData?.img_link ?? null,
         })
       }
 
@@ -85,19 +84,6 @@ export default function CartPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  /* =======================
-      GET APPROVED PRESCRIPTIONS
-  ======================= */
-  const fetchApprovedPrescriptions = async (customerId: number) => {
-    const q = query(
-      collection(db, "prescriptions"),
-      where("customerId", "==", customerId),
-      where("status", "==", "approved")
-    )
-    const snapshot = await getDocs(q)
-    setApprovedPrescriptions(snapshot.docs.map((d) => d.data()))
   }
 
   /* =======================
@@ -137,8 +123,6 @@ export default function CartPage() {
   const tax = subtotal * 0.1
   const total = subtotal + tax
 
-  const hasApprovedPrescription = approvedPrescriptions.length > 0
-
   /* =======================
       UI
   ======================= */
@@ -150,7 +134,7 @@ export default function CartPage() {
           <div className="text-center mt-16">
             <p className="mb-4 text-lg">Please sign in to view your cart.</p>
             <Link href="/login">
-              <Button className="bg-orange-500 text-white hover:bg-orange-600">Sign In</Button>
+              <Button className="bg-yellow-500 text-white hover:bg-yellow-600">Sign In</Button>
             </Link>
           </div>
         </div>
@@ -194,19 +178,24 @@ export default function CartPage() {
                 ) : (
                   cartItems.map((item) => (
                     <div key={item.cartId} className="flex items-center space-x-4 p-4 border rounded-lg">
-                      <div className="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
-                        <span className="text-gray-500 text-xs">No Image</span>
-                      </div>
+                      
+                      {/* ✅ IMAGE */}
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          width={80}
+                          height={80}
+                          className="rounded object-cover"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-500 text-xs">No Image</span>
+                        </div>
+                      )}
 
                       <div className="flex-1">
                         <h3 className="font-semibold">{item.name}</h3>
-
-                        {item.requiresPrescription && (
-                          <span className="text-sm text-red-600 font-medium">
-                            Prescription Required
-                          </span>
-                        )}
-
                         <p className="text-gray-600 text-sm">{item.description}</p>
                         <p className="text-gray-600">{item.price.toLocaleString()} đ</p>
                       </div>
@@ -286,20 +275,8 @@ export default function CartPage() {
                 </div>
 
                 <Link href="/purchase" className="w-full">
-                  <Button
-                    className="w-full bg-orange-500 text-white hover:bg-orange-600"
-                    size="lg"
-                    disabled={
-                      cartItems.length === 0 ||
-                      cartItems.some(
-                        (item) => item.requiresPrescription && !hasApprovedPrescription
-                      )
-                    }
-                  >
-                    {cartItems.some((item) => item.requiresPrescription) &&
-                    !hasApprovedPrescription
-                      ? "Complete Prescription First"
-                      : "Proceed to Checkout"}
+                  <Button className="w-full bg-yellow-500 text-white hover:bg-yellow-600" size="lg">
+                    Proceed to Checkout
                   </Button>
                 </Link>
               </CardContent>

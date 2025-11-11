@@ -7,69 +7,69 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
 
-type UserRole = "customer" | "staff";
+type UserRole = "customer" | "staff" | "pharmacist";
 
-type AppUser = {
-  uid: string;
-  email?: string | null;
+export type AppUser = {
+  userId: string;
   role: UserRole;
   customerId?: number | null;
+  name?: string;
+  email?: string;
 } | null;
 
 type AuthContextType = {
   user: AppUser;
-  setUser: React.Dispatch<React.SetStateAction<AppUser>>;
+  setUser: (u: AppUser) => void;
+  refreshUser: () => Promise<void>;
+  logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   setUser: () => {},
+  refreshUser: async () => {},
+  logout: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser>(null);
+  const [user, setUserState] = useState<AppUser>(null);
 
+  /* ========== Load from localStorage on start ========== */
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        setUser(null);
-        return;
-      }
-
-      try {
-        const ref = doc(db, "user", firebaseUser.uid);
-        const snapshot = await getDoc(ref);
-
-        let role: UserRole = "customer";
-        let customerId: number | null = null;
-
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          role = data.role ?? "customer";
-          customerId = data.customerId ?? null;
-        }
-
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          role,
-          customerId,
-        });
-      } catch (err) {
-        console.error("Load user role failed", err);
-        setUser(null);
-      }
-    });
-
-    return () => unsub();
+    const saved = localStorage.getItem("appUser");
+    if (saved) {
+      setUserState(JSON.parse(saved));
+    }
   }, []);
 
+  /* ========== Wrapped setUser to sync with localStorage ========== */
+  const setUser = (u: AppUser) => {
+    setUserState(u);
+    if (u) {
+      localStorage.setItem("appUser", JSON.stringify(u));
+    } else {
+      localStorage.removeItem("appUser");
+    }
+  };
+
+  const refreshUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      setUser(data.user ?? null);
+    } catch (e) {
+      setUser(null);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("appUser");
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthContext.Provider value={{ user, setUser, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

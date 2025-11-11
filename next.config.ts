@@ -1,8 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "trungnguyenlegendcafe.net",
+      },
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
