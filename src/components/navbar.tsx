@@ -21,7 +21,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-[100] shadow">
-      <nav className="bg-yellow-400 border-b">
+      <nav className="bg-white border-b">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
 
           {/* ✅ Left: Logo */}

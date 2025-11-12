@@ -64,7 +64,7 @@ export default function FeaturedProducts({ onSelectProduct }: any) {
                   {p.category}
                 </p>
 
-                <p className="text-yellow-500 font-bold text-xl">
+                <p className="text-black font-bold text-xl">
                   {p.price.toLocaleString()}₫
                 </p>
               </div>

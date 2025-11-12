@@ -8,7 +8,7 @@ import {
   ReactNode,
 } from "react";
 
-type UserRole = "customer" | "staff" | "pharmacist";
+type UserRole = "customer" | "staff";
 
 export type AppUser = {
   userId: string;
@@ -16,6 +16,7 @@ export type AppUser = {
   customerId?: number | null;
   name?: string;
   email?: string;
+  username?: string; 
 } | null;
 
 type AuthContextType = {

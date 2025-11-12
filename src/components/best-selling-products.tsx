@@ -60,7 +60,7 @@ export default function BestSellingProducts() {
                   {p.category}
                 </p>
 
-                <p className="text-yellow-400 font-bold text-xl">
+                <p className="text-black font-bold text-xl">
                   {p.price.toLocaleString()}₫
                 </p>
               </div>
