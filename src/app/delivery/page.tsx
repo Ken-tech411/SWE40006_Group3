@@ -1,53 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Package, Truck, MapPin, Clock, User, Search, CheckCircle } from "lucide-react";
+import {
+  Package,
+  Truck,
+  MapPin,
+  Clock,
+  User,
+  Search,
+  CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Footer } from "@/components/footer";
 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  updateDoc,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
 interface Delivery {
-  id: number;
-  orderId: number;
+  id: string; // Firestore doc ID
+  orderId: string; // same as id, used in URLs
   customerName: string;
   customerAddress: string;
-  status: string;
-  orderDate: string;
-  totalAmount: number | string;
+  status: string; // stored as lowercase for easier matching
+  orderDate: string; // ISO string
+  totalAmount: number;
   prescriptionId?: number;
-  customerId: number;
+  customerId: string;
 }
+
+const formatDate = (value: any | undefined): string => {
+  if (!value) return "";
+  if (value?.seconds) {
+    return new Date(value.seconds * 1000).toISOString();
+  }
+  return new Date(value).toISOString();
+};
 
 export default function DeliveryPage() {
   const { user } = useAuth();
+  const router = useRouter();
+
   const [trackingId, setTrackingId] = useState("");
   const [trackError, setTrackError] = useState<string | null>(null);
   const [customerDeliveries, setCustomerDeliveries] = useState<Delivery[]>([]);
   const [staffDeliveries, setStaffDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination state for customer deliveries
+  // Pagination - customer
   const [customerPage, setCustomerPage] = useState(1);
   const deliveriesPerPage = 10;
 
-  // Pagination state for staff deliveries (backend-driven)
+  // Pagination - staff (now frontend)
   const [staffPage, setStaffPage] = useState(1);
   const staffDeliveriesPerPage = 10;
   const [totalStaff, setTotalStaff] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({ pending: 0, approved: 0, delivered: 0 });
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    approved: 0,
+    delivered: 0,
+  });
 
-  // Filter state for staff
+  // Filters for staff
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [searchOrderId, setSearchOrderId] = useState("");
   const [searchCustomerId, setSearchCustomerId] = useState("");
   const [debouncedOrderId, setDebouncedOrderId] = useState("");
   const [debouncedCustomerId, setDebouncedCustomerId] = useState("");
-
-  const router = useRouter();
 
   // Debounce for Order ID
   useEffect(() => {
@@ -57,116 +88,163 @@ export default function DeliveryPage() {
 
   // Debounce for Customer ID
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedCustomerId(searchCustomerId), 400);
+    const handler = setTimeout(
+      () => setDebouncedCustomerId(searchCustomerId),
+      400
+    );
     return () => clearTimeout(handler);
   }, [searchCustomerId]);
 
-  // Fetch customer deliveries on mount and when customerPage changes
+  // Load customer deliveries
   useEffect(() => {
     if (user?.role === "customer") {
       fetchCustomerDeliveries();
     }
-    // eslint-disable-next-line
-  }, [customerPage, deliveriesPerPage, user?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerPage, user?.role]);
 
-  // Fetch staff deliveries on mount and when filters/page change (for pharmacist)
+  // Load staff deliveries
   useEffect(() => {
-    if (user?.role === "pharmacist") {
+    if (user?.role === "staff") {
       fetchAllDeliveries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staffPage, staffDeliveriesPerPage, selectedStatuses, debouncedOrderId, debouncedCustomerId, user?.role]);
+  }, [selectedStatuses, debouncedOrderId, debouncedCustomerId, user?.role]);
 
-  // Real-time polling for staff deliveries
+  // Optional polling for staff
   useEffect(() => {
-    if (user?.role !== "pharmacist") return;
+    if (user?.role !== "staff") return;
     const interval = setInterval(() => {
       fetchAllDeliveries();
     }, 30000);
     return () => clearInterval(interval);
-  }, [staffPage, staffDeliveriesPerPage, selectedStatuses, debouncedOrderId, debouncedCustomerId, user?.role]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStatuses, debouncedOrderId, debouncedCustomerId, user?.role]);
 
-  // Fetch only this customer's deliveries (orders)
+  // 🔹 Fetch only this customer's deliveries from Firestore
   const fetchCustomerDeliveries = async () => {
+    if (!user?.customerId) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/orders?customerId=${user?.customerId}`);
-      const data = await response.json();
-      setCustomerDeliveries(
-        (data.orders || [])
-          .filter((order: unknown) => (order as { customerId: number }).customerId === user?.customerId)
-          .map((order: unknown) => {
-            const orderData = order as {
-              orderId: number;
-              customerName: string;
-              customerAddress: string;
-              status: string;
-              orderDate: string;
-              totalAmount: number | string;
-              prescriptionId?: number;
-              customerId: number;
-            };
-            return {
-              id: orderData.orderId,
-              orderId: orderData.orderId,
-              customerName: orderData.customerName,
-              customerAddress: orderData.customerAddress || "",
-              status: orderData.status,
-              orderDate: orderData.orderDate,
-              totalAmount: orderData.totalAmount,
-              prescriptionId: orderData.prescriptionId,
-              customerId: orderData.customerId,
-            };
-          })
+      const q = query(
+        collection(db, "order"),
+        where("customerId", "==", String(user.customerId))
       );
+      const snap = await getDocs(q);
+
+      const orders = snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          orderId: d.id,
+          customerName: user.name ?? user.email ?? "You",
+          customerAddress: data.shippingAddress ?? "",
+          status: String(data.status ?? "pending").toLowerCase(),
+          orderDate: formatDate(data.createdAt),
+          totalAmount: Number(data.totalAmount ?? 0),
+          prescriptionId: undefined,
+          customerId: String(data.customerId ?? user.customerId),
+        } as Delivery;
+      });
+
+      setCustomerDeliveries(orders);
     } catch (error) {
-      console.error('Error fetching customer deliveries:', error);
+      console.error("Error fetching customer deliveries:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch all deliveries (orders) for staff with filters and pagination
+  // 🔹 Fetch all deliveries for staff from Firestore (filters applied in JS)
   const fetchAllDeliveries = async () => {
     setLoading(true);
-    const statusParams = selectedStatuses.map(s => `status=${encodeURIComponent(s)}`).join('&');
-    const orderIdParam = debouncedOrderId ? `&orderId=${encodeURIComponent(debouncedOrderId)}` : '';
-    const customerIdParam = debouncedCustomerId ? `&customerId=${encodeURIComponent(debouncedCustomerId)}` : '';
-    const query = [`page=${staffPage}`, `pageSize=${staffDeliveriesPerPage}`, statusParams, orderIdParam, customerIdParam]
-      .filter(Boolean)
-      .join('&');
     try {
-      const response = await fetch(`/api/deliveries?${query}`);
-      const data = await response.json();
-      setStaffDeliveries(
-        (data.orders || []).map((order: unknown) => {
-          const orderData = order as {
-            orderId: number;
-            customerName: string;
-            customerAddress: string;
-            status: string;
-            orderDate: string;
-            totalAmount: number | string;
-            prescriptionId?: number;
-            customerId: number;
-          };
-          return {
-            id: orderData.orderId,
-            orderId: orderData.orderId,
-            customerName: orderData.customerName,
-            customerAddress: orderData.customerAddress || "",
-            status: orderData.status,
-            orderDate: orderData.orderDate,
-            totalAmount: orderData.totalAmount,
-            prescriptionId: orderData.prescriptionId,
-            customerId: orderData.customerId,
-          };
+      const snap = await getDocs(collection(db, "order"));
+
+      const rawOrders = snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          orderId: d.id,
+          raw: data,
+        };
+      });
+
+      // Build a customer map so we can show names/addresses (best effort)
+      const customerIds = Array.from(
+        new Set(
+          rawOrders
+            .map((o) => String(o.raw.customerId || ""))
+            .filter((id) => id !== "")
+        )
+      );
+      const customerMap = new Map<string, any>();
+
+      await Promise.all(
+        customerIds.map(async (cid) => {
+          try {
+            const cSnap = await getDoc(doc(db, "customer", cid));
+            if (cSnap.exists()) {
+              customerMap.set(cid, cSnap.data());
+            }
+          } catch {
+            // ignore
+          }
         })
       );
-      setTotalStaff(data.total || 0);
-      setStatusCounts(data.statusCounts || { pending: 0, approved: 0, delivered: 0 });
+
+      let deliveries: Delivery[] = rawOrders.map((o) => {
+        const data = o.raw;
+        const cid = String(data.customerId ?? "");
+        const customer = customerMap.get(cid) ?? {};
+
+        return {
+          id: o.id,
+          orderId: o.id,
+          customerName:
+            customer.name ?? customer.fullName ?? customer.email ?? "Customer",
+          customerAddress:
+            data.shippingAddress ?? customer.address ?? "No address available",
+          status: String(data.status ?? "pending").toLowerCase(),
+          orderDate: formatDate(data.createdAt),
+          totalAmount: Number(data.totalAmount ?? 0),
+          prescriptionId: undefined,
+          customerId: cid,
+        } as Delivery;
+      });
+
+      // Apply filters in JS
+      if (selectedStatuses.length > 0) {
+        const allowed = selectedStatuses.map((s) => s.toLowerCase());
+        deliveries = deliveries.filter((d) =>
+          allowed.includes(d.status.toLowerCase())
+        );
+      }
+
+      if (debouncedOrderId.trim()) {
+        const term = debouncedOrderId.trim();
+        deliveries = deliveries.filter((d) => d.orderId.includes(term));
+      }
+
+      if (debouncedCustomerId.trim()) {
+        const cid = debouncedCustomerId.trim();
+        deliveries = deliveries.filter((d) => d.customerId === cid);
+      }
+
+      // Status counts
+      const counts = { pending: 0, approved: 0, delivered: 0 };
+      for (const d of deliveries) {
+        const s = d.status.toLowerCase();
+        if (s === "pending") counts.pending++;
+        if (s === "approved") counts.approved++;
+        if (s === "delivered") counts.delivered++;
+      }
+
+      setStatusCounts(counts);
+      setStaffDeliveries(deliveries);
+      setTotalStaff(deliveries.length);
     } catch (error) {
-      console.error('Error fetching all deliveries:', error);
+      console.error("Error fetching all deliveries:", error);
     } finally {
       setLoading(false);
     }
@@ -187,26 +265,24 @@ export default function DeliveryPage() {
     }
   };
 
-  const updateDeliveryStatus = async (orderId: number, newStatus: string) => {
+  // 🔹 Update Firestore order status
+  const updateDeliveryStatus = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch('/api/orders', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, status: newStatus }),
+      await updateDoc(doc(db, "order", orderId), {
+        status: newStatus,
       });
-      if (response.ok) {
-        if (user?.role === "customer") {
-          fetchCustomerDeliveries();
-        } else {
-          fetchAllDeliveries();
-        }
+
+      if (user?.role === "customer") {
+        fetchCustomerDeliveries();
+      } else {
+        fetchAllDeliveries();
       }
     } catch (error) {
-      console.error('Error updating delivery status:', error);
+      console.error("Error updating delivery status:", error);
     }
   };
 
-  // Track button with validation (cross-checks with orders table)
+  // 🔹 Track button – validate in Firestore instead of /api
   const handleTrackDelivery = async () => {
     setTrackError(null);
     if (!trackingId) {
@@ -217,36 +293,49 @@ export default function DeliveryPage() {
       setTrackError("You must be signed in to track your order.");
       return;
     }
+
     try {
-      const res = await fetch(`/api/orders/track?orderId=${encodeURIComponent(trackingId)}&customerId=${user.customerId}`);
-      if (!res.ok) {
-        const data = await res.json();
-        setTrackError(data.error || "Order not found. Please check your Order ID.");
-        return;
-      }
-      const data = await res.json();
-      if (!data || !data.orderId) {
+      const orderRef = doc(db, "order", trackingId);
+      const snap = await getDoc(orderRef);
+
+      if (!snap.exists()) {
         setTrackError("Order not found. Please check your Order ID.");
         return;
       }
+
+      const data = snap.data() as any;
+      if (String(data.customerId) !== String(user.customerId)) {
+        setTrackError("This order does not belong to your account.");
+        return;
+      }
+
       router.push(`/delivery/${encodeURIComponent(trackingId)}`);
-    } catch {
+    } catch (error) {
+      console.error("Error tracking order:", error);
       setTrackError("Order not found. Please check your Order ID.");
     }
   };
 
-  // Pagination logic for customer deliveries (frontend)
-  const filteredCustomerDeliveries = customerDeliveries.filter(
-    (delivery) => delivery.customerId === user?.customerId
+  // Customer pagination (frontend)
+  const filteredCustomerDeliveries = customerDeliveries; // already filtered by customerId
+  const totalCustomerPages = Math.ceil(
+    filteredCustomerDeliveries.length / deliveriesPerPage
   );
-  const totalCustomerPages = Math.ceil(filteredCustomerDeliveries.length / deliveriesPerPage);
   const paginatedCustomerDeliveries = filteredCustomerDeliveries.slice(
     (customerPage - 1) * deliveriesPerPage,
     customerPage * deliveriesPerPage
   );
 
-  // Pagination logic for staff deliveries (backend-driven)
+  // Staff pagination (frontend)
   const totalStaffPages = Math.ceil(totalStaff / staffDeliveriesPerPage);
+  const paginatedStaffDeliveries = useMemo(
+    () =>
+      staffDeliveries.slice(
+        (staffPage - 1) * staffDeliveriesPerPage,
+        staffPage * staffDeliveriesPerPage
+      ),
+    [staffDeliveries, staffPage, staffDeliveriesPerPage]
+  );
 
   if (loading) {
     return (
@@ -272,28 +361,31 @@ export default function DeliveryPage() {
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">Delivery Management</h1>
 
-        {/* Pharmacist: Show staff view directly, no tabs */}
-        {user.role === "pharmacist" ? (
+        {/* Staff view */}
+        {user.role === "staff" ? (
           <div className="space-y-6">
-            {/* --- Filter Section --- */}
+            {/* Filters */}
             <Card>
               <CardContent className="py-4">
                 <div className="flex flex-wrap gap-8 items-center">
-                  {/* Status Filter */}
                   <div>
                     <div className="font-semibold mb-2">Filter by Status:</div>
                     <div className="flex gap-3 flex-wrap">
-                      {["pending", "approved", "delivered"].map(status => (
-                        <label key={status} className="flex items-center gap-1 cursor-pointer">
+                      {["pending", "approved", "delivered"].map((status) => (
+                        <label
+                          key={status}
+                          className="flex items-center gap-1 cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             checked={selectedStatuses.includes(status)}
-                            onChange={e => {
-                              setSelectedStatuses(prev =>
+                            onChange={(e) => {
+                              setSelectedStatuses((prev) =>
                                 e.target.checked
                                   ? [...prev, status]
-                                  : prev.filter(s => s !== status)
+                                  : prev.filter((s) => s !== status)
                               );
+                              setStaffPage(1);
                             }}
                           />
                           {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -301,37 +393,47 @@ export default function DeliveryPage() {
                       ))}
                     </div>
                   </div>
-                  {/* Order ID Filter */}
+
                   <div>
                     <div className="font-semibold mb-2">Filter by Order ID:</div>
                     <Input
-                      type="number"
+                      type="text"
                       placeholder="Enter order ID"
                       value={searchOrderId}
-                      onChange={e => setSearchOrderId(e.target.value)}
+                      onChange={(e) => {
+                        setSearchOrderId(e.target.value);
+                        setStaffPage(1);
+                      }}
                     />
                   </div>
-                  {/* Customer ID Filter */}
+
                   <div>
-                    <div className="font-semibold mb-2">Filter by Customer ID:</div>
+                    <div className="font-semibold mb-2">
+                      Filter by Customer ID:
+                    </div>
                     <Input
-                      type="number"
+                      type="text"
                       placeholder="Enter customer ID"
                       value={searchCustomerId}
-                      onChange={e => setSearchCustomerId(e.target.value)}
+                      onChange={(e) => {
+                        setSearchCustomerId(e.target.value);
+                        setStaffPage(1);
+                      }}
                     />
                   </div>
                 </div>
               </CardContent>
             </Card>
-            {/* --- End Filter Section --- */}
 
+            {/* Summary cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Pending</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Pending
+                      </p>
                       <p className="text-2xl font-bold">
                         {statusCounts.pending}
                       </p>
@@ -345,7 +447,9 @@ export default function DeliveryPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">In Transit</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        In Transit
+                      </p>
                       <p className="text-2xl font-bold">
                         {statusCounts.approved}
                       </p>
@@ -359,7 +463,9 @@ export default function DeliveryPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Delivered</p>
+                      <p className="text-sm font-medium text-gray-600">
+                        Delivered
+                      </p>
                       <p className="text-2xl font-bold">
                         {statusCounts.delivered}
                       </p>
@@ -370,6 +476,7 @@ export default function DeliveryPage() {
               </Card>
             </div>
 
+            {/* Staff deliveries list */}
             <div className="grid gap-4">
               <h2 className="text-xl font-semibold">All Deliveries</h2>
               {staffDeliveries.length === 0 ? (
@@ -379,76 +486,108 @@ export default function DeliveryPage() {
                   </CardContent>
                 </Card>
               ) : (
-                staffDeliveries.map((delivery) => (
+                paginatedStaffDeliveries.map((delivery) => (
                   <Card key={delivery.id} className="border rounded-lg mb-4">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            {/* Status Icon */}
-                            {delivery.status?.toLowerCase() === "pending" && <Clock className="w-4 h-4" />}
-                            {delivery.status?.toLowerCase() === "approved" && <Truck className="w-4 h-4" />}
-                            {delivery.status?.toLowerCase() === "delivered" && <CheckCircle className="w-4 h-4" />}
+                            {delivery.status === "pending" && (
+                              <Clock className="w-4 h-4" />
+                            )}
+                            {delivery.status === "approved" && (
+                              <Truck className="w-4 h-4" />
+                            )}
+                            {delivery.status === "delivered" && (
+                              <CheckCircle className="w-4 h-4" />
+                            )}
                             <Badge className={getStatusColor(delivery.status)}>
                               {delivery.status?.toUpperCase()}
                             </Badge>
                           </div>
                           <div className="text-sm text-gray-600">
-                            Order ID: {delivery.orderId} | Customer ID: {delivery.customerId}
+                            Order ID: {delivery.orderId} | Customer ID:{" "}
+                            {delivery.customerId}
                           </div>
                           <div className="text-xs text-gray-400">
                             <User className="inline w-4 h-4 mr-1" />
                             {delivery.customerName || "Guest"}
                             {" | "}
                             <MapPin className="inline w-4 h-4 mr-1" />
-                            {delivery.customerAddress || "No address available"}
+                            {delivery.customerAddress ||
+                              "No address available"}
                           </div>
                           <div className="text-xs text-gray-400">
-                            Order Date: {new Date(delivery.orderDate).toLocaleDateString()}
+                            Order Date:{" "}
+                            {delivery.orderDate
+                              ? new Date(
+                                  delivery.orderDate
+                                ).toLocaleDateString()
+                              : "N/A"}
                           </div>
                         </div>
                         <div className="text-right min-w-[120px]">
                           <div className="font-medium text-blue-700">
-                            ${delivery.totalAmount ? Number(delivery.totalAmount).toFixed(2) : '0.00'}
+                            $
+                            {delivery.totalAmount
+                              ? Number(delivery.totalAmount).toFixed(2)
+                              : "0.00"}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            Submitted: {new Date(delivery.orderDate).toLocaleDateString()}
+                            Submitted:{" "}
+                            {delivery.orderDate
+                              ? new Date(
+                                  delivery.orderDate
+                                ).toLocaleDateString()
+                              : "N/A"}
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {/* Only show staff actions for pharmacist */}
-                        {user?.role === "pharmacist" && delivery.status?.toLowerCase() === "pending" && (
-                          <>
+                        {user?.role === "staff" &&
+                          delivery.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-blue-500 hover:bg-blue-600 text-white"
+                                onClick={() =>
+                                  updateDeliveryStatus(delivery.id, "approved")
+                                }
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-red-500 hover:bg-red-600 text-white"
+                                onClick={() =>
+                                  updateDeliveryStatus(
+                                    delivery.id,
+                                    "cancelled"
+                                  )
+                                }
+                              >
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                        {user?.role === "staff" &&
+                          delivery.status === "approved" && (
                             <Button
                               size="sm"
-                              className="bg-blue-500 hover:bg-blue-600 text-white"
-                              onClick={() => updateDeliveryStatus(delivery.id, "approved")}
+                              className="bg-green-500 hover:bg-green-600 text-white"
+                              onClick={() =>
+                                updateDeliveryStatus(delivery.id, "delivered")
+                              }
                             >
-                              Approve
+                              Mark Delivered
                             </Button>
-                            <Button
-                              size="sm"
-                              className="bg-red-500 hover:bg-red-600 text-white"
-                              onClick={() => updateDeliveryStatus(delivery.id, "cancelled")}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {user?.role === "pharmacist" && delivery.status?.toLowerCase() === "approved" && (
-                          <Button
-                            size="sm"
-                            className="bg-green-500 hover:bg-green-600 text-white"
-                            onClick={() => updateDeliveryStatus(delivery.id, "delivered")}
-                          >
-                            Mark Delivered
-                          </Button>
-                        )}
+                          )}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/delivery/${delivery.orderId}`)}
+                          onClick={() =>
+                            router.push(`/delivery/${delivery.orderId}`)
+                          }
                         >
                           View Details
                         </Button>
@@ -458,7 +597,7 @@ export default function DeliveryPage() {
                 ))
               )}
 
-              {/* Pagination Controls for Staff */}
+              {/* Staff Pagination */}
               {totalStaffPages > 1 && (
                 <div className="flex justify-center items-center space-x-2 mt-4">
                   <Button
@@ -473,7 +612,9 @@ export default function DeliveryPage() {
                     variant="outline"
                     size="sm"
                     disabled={staffPage === 1}
-                    onClick={() => setStaffPage((prev) => Math.max(1, prev - 1))}
+                    onClick={() =>
+                      setStaffPage((prev) => Math.max(1, prev - 1))
+                    }
                   >
                     &lt;
                   </Button>
@@ -484,7 +625,11 @@ export default function DeliveryPage() {
                     variant="outline"
                     size="sm"
                     disabled={staffPage === totalStaffPages}
-                    onClick={() => setStaffPage((prev) => Math.min(totalStaffPages, prev + 1))}
+                    onClick={() =>
+                      setStaffPage((prev) =>
+                        Math.min(totalStaffPages, prev + 1)
+                      )
+                    }
                   >
                     &gt;
                   </Button>
@@ -501,7 +646,7 @@ export default function DeliveryPage() {
             </div>
           </div>
         ) : (
-          // Customer: Show customer view directly, no tabs
+          // Customer view
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -523,7 +668,9 @@ export default function DeliveryPage() {
                   </Button>
                 </div>
                 {trackError && (
-                  <div className="text-red-500 text-sm mt-2">{trackError}</div>
+                  <div className="text-red-500 text-sm mt-2">
+                    {trackError}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -543,10 +690,15 @@ export default function DeliveryPage() {
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            {/* Status Icon */}
-                            {delivery.status?.toLowerCase() === "pending" && <Clock className="w-4 h-4" />}
-                            {delivery.status?.toLowerCase() === "approved" && <Truck className="w-4 h-4" />}
-                            {delivery.status?.toLowerCase() === "delivered" && <CheckCircle className="w-4 h-4" />}
+                            {delivery.status === "pending" && (
+                              <Clock className="w-4 h-4" />
+                            )}
+                            {delivery.status === "approved" && (
+                              <Truck className="w-4 h-4" />
+                            )}
+                            {delivery.status === "delivered" && (
+                              <CheckCircle className="w-4 h-4" />
+                            )}
                             <Badge className={getStatusColor(delivery.status)}>
                               {delivery.status?.toUpperCase()}
                             </Badge>
@@ -556,18 +708,32 @@ export default function DeliveryPage() {
                           </div>
                           <div className="text-xs text-gray-400">
                             <MapPin className="inline w-4 h-4 mr-1" />
-                            {delivery.customerAddress || "No address available"}
+                            {delivery.customerAddress ||
+                              "No address available"}
                           </div>
                           <div className="text-xs text-gray-400">
-                            Order Date: {new Date(delivery.orderDate).toLocaleDateString()}
+                            Order Date:{" "}
+                            {delivery.orderDate
+                              ? new Date(
+                                  delivery.orderDate
+                                ).toLocaleDateString()
+                              : "N/A"}
                           </div>
                         </div>
                         <div className="text-right min-w-[120px]">
                           <div className="font-medium text-blue-700">
-                            ${delivery.totalAmount ? Number(delivery.totalAmount).toFixed(2) : '0.00'}
+                            $
+                            {delivery.totalAmount
+                              ? Number(delivery.totalAmount).toFixed(2)
+                              : "0.00"}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            Submitted: {new Date(delivery.orderDate).toLocaleDateString()}
+                            Submitted:{" "}
+                            {delivery.orderDate
+                              ? new Date(
+                                  delivery.orderDate
+                                ).toLocaleDateString()
+                              : "N/A"}
                           </div>
                         </div>
                       </div>
@@ -575,7 +741,9 @@ export default function DeliveryPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/delivery/${delivery.orderId}`)}
+                          onClick={() =>
+                            router.push(`/delivery/${delivery.orderId}`)
+                          }
                         >
                           View Details
                         </Button>
@@ -585,7 +753,7 @@ export default function DeliveryPage() {
                 ))
               )}
 
-              {/* Pagination Controls */}
+              {/* Customer Pagination */}
               {totalCustomerPages > 1 && (
                 <div className="flex justify-center items-center space-x-2 mt-4">
                   <Button
@@ -600,7 +768,9 @@ export default function DeliveryPage() {
                     variant="outline"
                     size="sm"
                     disabled={customerPage === 1}
-                    onClick={() => setCustomerPage((prev) => Math.max(1, prev - 1))}
+                    onClick={() =>
+                      setCustomerPage((prev) => Math.max(1, prev - 1))
+                    }
                   >
                     &lt;
                   </Button>
@@ -611,7 +781,11 @@ export default function DeliveryPage() {
                     variant="outline"
                     size="sm"
                     disabled={customerPage === totalCustomerPages}
-                    onClick={() => setCustomerPage((prev) => Math.min(totalCustomerPages, prev + 1))}
+                    onClick={() =>
+                      setCustomerPage((prev) =>
+                        Math.min(totalCustomerPages, prev + 1)
+                      )
+                    }
                   >
                     &gt;
                   </Button>
