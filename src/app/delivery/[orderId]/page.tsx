@@ -247,7 +247,7 @@ export default function DeliveryDetailsPage() {
         {/* Back button */}
         <button
           onClick={() => router.push("/delivery")}
-          className="inline-flex items-center gap-2 text-sm text-zinc-700 hover:text-zinc-900 mb-6"
+          className="inline-flex items-center gap-2 text-sm text-zinc-700 hover:text-yellow-400 mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Deliveries
@@ -280,8 +280,8 @@ export default function DeliveryDetailsPage() {
         ) : order ? (
           <>
             <h1 className="text-2xl font-bold text-zinc-900 mb-2">
-              Order{" "}
-              <span className="font-mono text-zinc-700">
+              Order:{" "}
+              <span className="font-mono text-yellow-500">
                 #{order.id}
               </span>
             </h1>
@@ -327,7 +327,7 @@ export default function DeliveryDetailsPage() {
                     <span className="font-medium">
                       Customer ID:
                     </span>
-                    <span className="font-mono text-xs">
+                    <span className="font-bold text-xs">
                       {order.customerId}
                     </span>
                   </div>
@@ -366,7 +366,7 @@ export default function DeliveryDetailsPage() {
                       <span className="font-semibold text-zinc-900">
                         Total
                       </span>
-                      <span className="text-lg font-bold text-yellow-600">
+                      <span className="text-lg font-bold text-yellow-500">
                         {order.totalAmount.toLocaleString("vi-VN")} ₫
                       </span>
                     </div>

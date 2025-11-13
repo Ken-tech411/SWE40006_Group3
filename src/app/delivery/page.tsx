@@ -527,11 +527,8 @@ export default function DeliveryPage() {
                           </div>
                         </div>
                         <div className="text-right min-w-[120px]">
-                          <div className="font-medium text-blue-700">
-                            $
-                            {delivery.totalAmount
-                              ? Number(delivery.totalAmount).toFixed(2)
-                              : "0.00"}
+                          <div className="font-bold text-yellow-500">
+                            {delivery.totalAmount.toLocaleString("vi-VN")} ₫
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             Submitted:{" "}
@@ -660,7 +657,7 @@ export default function DeliveryPage() {
                     onChange={(e) => setTrackingId(e.target.value)}
                   />
                   <Button
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                    className="bg-yellow-400 hover:bg-black hover:text-yellow-400 text-black font-bold"
                     onClick={handleTrackDelivery}
                   >
                     <Search className="w-4 h-4 mr-2" />
@@ -721,11 +718,8 @@ export default function DeliveryPage() {
                           </div>
                         </div>
                         <div className="text-right min-w-[120px]">
-                          <div className="font-medium text-blue-700">
-                            $
-                            {delivery.totalAmount
-                              ? Number(delivery.totalAmount).toFixed(2)
-                              : "0.00"}
+                          <div className="font-bold text-yellow-500">
+                            {delivery.totalAmount.toLocaleString("vi-VN")} ₫
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             Submitted:{" "}

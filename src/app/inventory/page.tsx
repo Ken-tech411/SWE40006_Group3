@@ -210,7 +210,7 @@ const StatsCard = memo(
       <div
         className={`text-2xl font-bold ${
           title.includes("Low Stock")
-            ? "text-yellow-600"
+            ? "text-yellow-500"
             : title.includes("Out of Stock")
             ? "text-red-600"
             : title.includes("Total Value")
@@ -219,7 +219,7 @@ const StatsCard = memo(
         }`}
       >
         {title.includes("Total Value")
-          ? `₫${value.toLocaleString("vi-VN")}`
+          ? `${value.toLocaleString("vi-VN")}`
           : value}
       </div>
       <div className="text-xs text-zinc-500 mt-1">{subtitle}</div>
@@ -313,7 +313,7 @@ const InventoryRow = memo(
         {/* Cost */}
         <td className="px-6 py-4 text-center align-middle whitespace-nowrap">
           <span className="font-bold text-zinc-900 text-sm">
-            ₫{(item.cost || 0).toLocaleString("vi-VN")}
+            {(item.cost || 0).toLocaleString("vi-VN")}₫
           </span>
         </td>
 

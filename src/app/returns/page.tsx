@@ -341,13 +341,13 @@ export default function ReturnsPage() {
             </Card>
 
             {/* ✅ STATS */}
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-4 gap-4 font-bold">
               <Card><CardContent>Pending: {stats.pending}</CardContent></Card>
               <Card><CardContent>Approved: {stats.approved}</CardContent></Card>
               <Card><CardContent>Rejected: {stats.rejected}</CardContent></Card>
               <Card>
                 <CardContent>
-                  Total Refunds: ${Number(stats.totalRefunds).toFixed(2)}
+                  Total Refunds: {stats.totalRefunds.toLocaleString("vi-VN")} ₫
                 </CardContent>
               </Card>
             </div>
@@ -389,7 +389,7 @@ export default function ReturnsPage() {
                         Description: {item.description}
                       </div>
                       <div className="text-sm text-gray-600">
-                        Refund Amount: ₫{item.refundAmount}
+                        Refund Amount: {item.refundAmount.toLocaleString("vi-VN")} ₫
                       </div>
                       {item.processedDate && (
                         <div className="text-sm text-gray-500">
@@ -464,7 +464,7 @@ export default function ReturnsPage() {
                     Description: {item.description}
                   </div>
                   <div className="text-sm text-gray-600">
-                    Refund: ₫{item.refundAmount}
+                    Refund: {item.refundAmount.toLocaleString("vi-VN")} ₫
                   </div>
                 </div>
               </CardContent>
