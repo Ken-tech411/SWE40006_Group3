@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "engines": {
-    "node": "20.0.0"
+    "node": "20.19.5"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
