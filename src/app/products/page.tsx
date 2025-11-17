@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   collection,
   getDocs,
@@ -44,9 +44,9 @@ interface Product {
 
 type ModalType = "view" | "edit" | "add";
 
-/* ============================== Page =============================== */
+/* ============================== Inner Page =============================== */
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const { user } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -63,11 +63,11 @@ export default function ProductsPage() {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<ModalType>("view");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  // 🔍 Lấy search & category từ URL
+
+  // 🔍 Lấy search & category từ URL (now safely inside Suspense)
   const searchParams = useSearchParams();
   const search = searchParams.get("search")?.toLowerCase().trim() || "";
   const category = searchParams.get("category")?.toLowerCase().trim() || "";
-
 
   /* ---------------------- Inventory helpers ----------------------- */
 
@@ -94,7 +94,10 @@ export default function ProductsPage() {
   };
 
   // Upsert stock for a productId to inventory collection
-  const upsertInventoryStock = async (productId: string, stockQuantity: number) => {
+  const upsertInventoryStock = async (
+    productId: string,
+    stockQuantity: number
+  ) => {
     const existingId = await findInventoryDocId(productId);
     if (existingId) {
       await updateDoc(doc(db, "inventory", existingId), {
@@ -119,7 +122,6 @@ export default function ProductsPage() {
       await deleteDoc(doc(db, "inventory", invId));
     }
   };
-  
 
   /* -------------------------- Fetch all --------------------------- */
 
@@ -185,15 +187,18 @@ export default function ProductsPage() {
   /* ---------------------- Search / Filter / Sort ------------------- */
 
   const categories = useMemo(
-    () => ["All Categories", ...Array.from(new Set(products.map((p) => p.category || "Uncategorized")))],
+    () => [
+      "All Categories",
+      ...Array.from(
+        new Set(products.map((p) => p.category || "Uncategorized"))
+      ),
+    ],
     [products]
   );
 
   const filteredProducts = useMemo(() => {
     const term = (search || searchTerm).trim().toLowerCase(); // ưu tiên search từ URL
-    const catFilter = category
-      ? category
-      : categoryFilter.toLowerCase();
+    const catFilter = category ? category : categoryFilter.toLowerCase();
 
     return products.filter((p) => {
       const name = (p.name ?? "").toLowerCase();
@@ -213,8 +218,6 @@ export default function ProductsPage() {
     });
   }, [products, searchTerm, search, category, categoryFilter, statusFilter]);
 
-
-
   /* --------------------------- Pagination -------------------------- */
 
   const totalItems = filteredProducts.length;
@@ -225,7 +228,9 @@ export default function ProductsPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const generatePageNumbers = () => {
@@ -237,7 +242,8 @@ export default function ProductsPage() {
     } else {
       let start = Math.max(1, currentPage - 2);
       const end = Math.min(totalPages, start + maxVisible - 1);
-      if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1);
+      if (end - start < maxVisible - 1)
+        start = Math.max(1, end - maxVisible + 1);
       for (let i = start; i <= end; i++) pages.push(i);
     }
     return pages;
@@ -248,7 +254,8 @@ export default function ProductsPage() {
     return (
       <div className="flex flex-col items-center mt-12 space-y-4">
         <div className="text-base text-gray-700 font-medium">
-          Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} products
+          Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of{" "}
+          {totalItems} products
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -391,7 +398,9 @@ export default function ProductsPage() {
         // Update product doc
         await updateDoc(doc(db, "product", selectedProduct.productId), {
           ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(data.description !== undefined ? { description: data.description } : {}),
+          ...(data.description !== undefined
+            ? { description: data.description }
+            : {}),
           ...(data.price !== undefined ? { price: Number(data.price) } : {}),
           ...(data.category !== undefined ? { category: data.category } : {}),
           ...(data.img_link !== undefined ? { img_link: data.img_link } : {}),
@@ -399,7 +408,10 @@ export default function ProductsPage() {
 
         // Update stock in inventory if provided
         if (data.stock !== undefined) {
-          await upsertInventoryStock(selectedProduct.productId, Number(data.stock));
+          await upsertInventoryStock(
+            selectedProduct.productId,
+            Number(data.stock)
+          );
         }
 
         // Reflect UI
@@ -409,8 +421,10 @@ export default function ProductsPage() {
               ? {
                   ...p,
                   ...data,
-                  price: data.price !== undefined ? Number(data.price) : p.price,
-                  stock: data.stock !== undefined ? Number(data.stock) : p.stock,
+                  price:
+                    data.price !== undefined ? Number(data.price) : p.price,
+                  stock:
+                    data.stock !== undefined ? Number(data.stock) : p.stock,
                 }
               : p
           )
@@ -441,7 +455,9 @@ export default function ProductsPage() {
     return (
       <main className="p-6 bg-gray-50 min-h-screen">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="text-red-700 font-medium">Error loading products</div>
+          <div className="text-red-700 font-medium">
+            Error loading products
+          </div>
           <div className="text-red-600 text-sm mt-1">{err}</div>
           <button
             onClick={() => window.location.reload()}
@@ -653,14 +669,17 @@ export default function ProductsPage() {
           <ProductViewModal product={selectedProduct} onClose={closeModal} />
         )}
 
-        {showModal && modalType === "edit" && selectedProduct && user?.role === "staff" && (
-          <ProductFormModal
-            product={selectedProduct}
-            onClose={closeModal}
-            onSubmit={submitProduct}
-            title="Edit Product"
-          />
-        )}
+        {showModal &&
+          modalType === "edit" &&
+          selectedProduct &&
+          user?.role === "staff" && (
+            <ProductFormModal
+              product={selectedProduct}
+              onClose={closeModal}
+              onSubmit={submitProduct}
+              title="Edit Product"
+            />
+          )}
 
         {showModal && modalType === "add" && user?.role === "staff" && (
           <ProductFormModal
@@ -672,6 +691,25 @@ export default function ProductsPage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+/* ============================ Default Export with Suspense ============================ */
+
+export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="p-6 bg-gray-50 min-h-screen">
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
+            <span className="ml-3 text-gray-700">Loading products...</span>
+          </div>
+        </main>
+      }
+    >
+      <ProductsPageContent />
+    </Suspense>
   );
 }
 
@@ -707,8 +745,13 @@ function ProductViewModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-6 border-b bg-white">
-          <h2 className="text-2xl font-bold text-gray-900">Product Details</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <h2 className="text-2xl font-bold text-gray-900">
+            Product Details
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
             <X className="w-5 h-5 text-gray-600" />
           </button>
         </div>
@@ -718,7 +761,11 @@ function ProductViewModal({
             <div className="bg-yellow-50 rounded-lg p-0 flex items-center justify-center overflow-hidden min-h-56">
               {product.img_link ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.img_link} alt={product.name} className="w-full h-full object-cover" />
+                <img
+                  src={product.img_link}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <Package className="w-16 h-16 text-yellow-500" />
               )}
@@ -726,38 +773,60 @@ function ProductViewModal({
 
             <div>
               <div className="mb-4">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    status
+                  )}`}
+                >
                   {status}
                 </span>
               </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">{product.name}</h3>
-              <p className="text-yellow-500 font-medium mb-4">{product.category}</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                {product.name}
+              </h3>
+              <p className="text-yellow-500 font-medium mb-4">
+                {product.category}
+              </p>
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Price</label>
+                  <label className="text-sm font-medium text-gray-600">
+                    Price
+                  </label>
                   <p className="text-2xl font-bold text-green-600">
                     {Number(product.price).toLocaleString()}₫
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Stock Level</label>
-                  <p className="text-lg font-semibold text-gray-900">{product.stock || 0} units</p>
+                  <label className="text-sm font-medium text-gray-600">
+                    Stock Level
+                  </label>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {product.stock || 0} units
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Product ID</label>
-                  <p className="text-gray-900 font-mono">{product.productId}</p>
+                  <label className="text-sm font-medium text-gray-600">
+                    Product ID
+                  </label>
+                  <p className="text-gray-900 font-mono">
+                    {product.productId}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="mt-6">
-            <label className="text-sm font-medium text-gray-600">Description</label>
-            <p className="text-gray-800 mt-2 leading-relaxed">{product.description}</p>
+            <label className="text-sm font-medium text-gray-600">
+              Description
+            </label>
+            <p className="text-gray-800 mt-2 leading-relaxed">
+              {product.description}
+            </p>
           </div>
 
           <div className="flex gap-3 mt-8">
@@ -788,7 +857,11 @@ function ProductFormModal({
   const [formData, setFormData] = useState({
     name: product?.name || "",
     description: product?.description || "",
-    price: typeof product?.price === "number" || typeof product?.price === "string" ? String(product?.price) : "",
+    price:
+      typeof product?.price === "number" ||
+      typeof product?.price === "string"
+        ? String(product?.price)
+        : "",
     category: product?.category || "",
     img_link: product?.img_link || "",
     stock: product?.stock ?? 0,
@@ -813,7 +886,10 @@ function ProductFormModal({
       <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between p-6 border-b bg-white">
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
             <X className="w-5 h-5 text-gray-600" />
           </button>
         </div>
@@ -826,7 +902,9 @@ function ProductFormModal({
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
               required
             />
@@ -839,7 +917,9 @@ function ProductFormModal({
             <input
               type="text"
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, category: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
             />
           </div>
@@ -853,7 +933,9 @@ function ProductFormModal({
               step="1"
               min="0"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
               required
             />
@@ -866,7 +948,9 @@ function ProductFormModal({
             <input
               type="url"
               value={formData.img_link}
-              onChange={(e) => setFormData({ ...formData, img_link: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, img_link: e.target.value })
+              }
               placeholder="https://example.com/image.jpg"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
             />
@@ -878,13 +962,15 @@ function ProductFormModal({
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
             />
           </div>
 
-          {/* Stock Edit: A (edit ngay trong modal) */}
+          {/* Stock Edit */}
           <div>
             <label className="block text-sm font-medium text-gray-800 mb-2">
               Stock Quantity
@@ -895,7 +981,10 @@ function ProductFormModal({
               min="0"
               value={formData.stock}
               onChange={(e) =>
-                setFormData({ ...formData, stock: Number(e.target.value) })
+                setFormData({
+                  ...formData,
+                  stock: Number(e.target.value),
+                })
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none text-gray-900"
             />
